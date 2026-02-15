@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pills - Architecture Documentation</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --border: #0f3460;
+            --text: #e0e0e0;
+            --text-muted: #8899aa;
+            --accent-cyan: #00d2d3;
+            --accent-orange: #ff9f43;
+            --accent-blue: #54a0ff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 48px;
+        }
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            margin: 48px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--accent-orange);
+            margin: 32px 0 12px;
+        }
+        p { margin-bottom: 16px; }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+        }
+        .diagram-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px 24px;
+            margin: 24px 0;
+            display: flex;
+            justify-content: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+        th, td {
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            color: var(--accent-cyan);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td { color: var(--text); }
+        code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            background: rgba(0, 210, 211, 0.1);
+            color: var(--accent-cyan);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .file-path { color: var(--accent-orange); }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .badge-cyan { background: rgba(0, 210, 211, 0.15); color: var(--accent-cyan); }
+        .badge-orange { background: rgba(255, 159, 67, 0.15); color: var(--accent-orange); }
+        .badge-blue { background: rgba(84, 160, 255, 0.15); color: var(--accent-blue); }
+        .badge-grey { background: rgba(200, 200, 200, 0.15); color: #aaa; }
+        .state-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .state-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+        .state-card h4 {
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            color: var(--text);
+        }
+        .bar-preview {
+            height: 10px;
+            border-radius: 4px;
+            margin: 6px 16px;
+        }
+        .tech-stack {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 16px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pills</h1>
+        <p class="subtitle">Architecture &amp; Design Documentation</p>
+
+        <!-- Hero screenshot -->
+        <div style="text-align: center; margin: 32px 0 16px;">
+            <div style="display: inline-block; background: #000; border-radius: 40px; padding: 14px; box-shadow: 0 16px 64px rgba(0,0,0,0.6);">
+                <img src="pillsapp3.jpg" alt="Pills app running on iPhone 16 Pro" style="width: 240px; border-radius: 28px; display: block;" />
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 14px;">Running on iPhone 16 Pro</p>
+        </div>
+
+        <!-- Tech Stack -->
+        <h2>Tech Stack</h2>
+        <div class="tech-stack">
+            <span class="badge badge-cyan">Swift 5</span>
+            <span class="badge badge-orange">SwiftUI</span>
+            <span class="badge badge-blue">SwiftData</span>
+            <span class="badge badge-grey">iOS 17+</span>
+            <span class="badge badge-grey">iPhone Only</span>
+            <span class="badge badge-grey">Xcode 16</span>
+        </div>
+
+        <!-- View Hierarchy -->
+        <h2>View Hierarchy</h2>
+        <p>The app uses a single-screen architecture with a clear top-down view hierarchy. <code>ContentView</code> acts as the coordinator, owning the data context and passing callbacks down.</p>
+        <div class="diagram-container">
+            <div class="mermaid">
+graph TD
+    A["<b>PillsApp</b><br/><i>@main entry point</i><br/>ModelContainer for PillRecord<br/>Configures NotificationManager"] --> B
+    A --> NM
+
+    B["<b>ContentView</b><br/><i>Root view &amp; coordinator</i><br/>@Query allRecords<br/>@State displayedMonth<br/>@AppStorage historyLocked<br/>Month navigation<br/>Toggle logic + lock guard<br/>scenePhase → reschedule"] --> C
+    B --> D
+    B --> E
+    B --> S
+
+    C["<b>StreakView</b><br/><i>Streak counter</i><br/>Flame icon + count<br/>Counts consecutive<br/>complete days"]
+
+    D["<b>CalendarView</b><br/><i>Month grid</i><br/>GeometryReader layout<br/>6 fixed week rows<br/>Day-of-week headers"] --> F
+
+    E["<b>Legend</b><br/><i>Inline in ContentView</i><br/>Cyan / Orange / Grey"]
+
+    F["<b>DayCellView</b><br/><i>Per-day cell</i><br/>Day number<br/>Morning bar (cyan)<br/>Evening bar (orange)<br/>Tap handling + haptics"]
+
+    S["<b>SettingsView</b><br/><i>Modal sheet</i><br/>Notification toggle<br/>Morning/evening time pickers<br/>History lock toggle"]
+
+    NM["<b>NotificationManager</b><br/><i>Singleton service</i><br/>UNUserNotificationCenter delegate<br/>Schedule/cancel notifications<br/>7-day lookahead scheduling"]
+
+    style A fill:#0f3460,stroke:#54a0ff,color:#e0e0e0
+    style B fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style C fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style D fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style E fill:#0f3460,stroke:#888,color:#e0e0e0
+    style F fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style S fill:#0f3460,stroke:#a29bfe,color:#e0e0e0
+    style NM fill:#0f3460,stroke:#00b894,color:#e0e0e0
+            </div>
+        </div>
+
+        <!-- Data Model -->
+        <h2>Data Model</h2>
+        <p>A single SwiftData <code>@Model</code> class persists pill state. One record per day, created on first interaction.</p>
+        <div class="diagram-container">
+            <div class="mermaid">
+erDiagram
+    PillRecord {
+        Date date "Start of day (midnight)"
+        Bool morningTaken "Default: false"
+        Bool eveningTaken "Default: false"
+    }
+            </div>
+        </div>
+        <div class="card">
+            <p><strong>Storage strategy:</strong> SwiftData with automatic persistence. The <code>ModelContainer</code> is created explicitly in <code>PillsApp.init()</code> and shared with both the SwiftUI view hierarchy (via <code>.modelContainer()</code>) and <code>NotificationManager</code> (for background queries). The <code>ModelContext</code> is accessed via <code>@Environment</code> in <code>ContentView</code>.</p>
+            <p><strong>Query strategy:</strong> A single <code>@Query</code> fetches all <code>PillRecord</code> objects. Filtering by month/date is done in code. Since records are bounded at ~365/year, this is efficient and avoids dynamic predicate complexity.</p>
+            <p><strong>Record lifecycle:</strong> Records are lazily created. No record exists for a day until the user first taps a bar. Toggling checks for an existing record first; if none exists, a new one is inserted with the tapped pill marked as taken.</p>
+            <p><strong>History lock:</strong> The lock state (<code>historyLocked</code> Bool, <code>unlockTimestamp</code> TimeInterval) is stored in <code>@AppStorage</code> (UserDefaults), not SwiftData. It's a UI preference &mdash; not pill data &mdash; so it lives outside the data model.</p>
+        </div>
+
+        <!-- Data Flow -->
+        <h2>Data Flow</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+sequenceDiagram
+    participant User
+    participant DayCellView
+    participant CalendarView
+    participant ContentView
+    participant SwiftData
+
+    User->>DayCellView: Tap morning bar
+    DayCellView->>DayCellView: Check canTap (not future)
+    DayCellView->>DayCellView: Trigger haptic feedback
+    DayCellView->>CalendarView: onToggleMorning()
+    CalendarView->>ContentView: onToggleMorning(date)
+    alt Past day + history locked
+        ContentView-->>User: Show unlock alert
+        User->>ContentView: Tap Unlock
+        ContentView->>ContentView: unlock() — start 10min timer
+    end
+    ContentView->>SwiftData: Find or create PillRecord
+    ContentView->>SwiftData: Toggle morningTaken
+    SwiftData-->>ContentView: @Query updates allRecords
+    ContentView-->>CalendarView: Re-render with new data
+    CalendarView-->>DayCellView: Updated record prop
+    DayCellView-->>User: Bar colour changes
+            </div>
+        </div>
+
+        <!-- File Reference -->
+        <h2>File Reference</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>File</th>
+                    <th>Role</th>
+                    <th>Key Responsibilities</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code class="file-path">PillsApp.swift</code></td>
+                    <td><span class="badge badge-blue">Entry</span></td>
+                    <td>App entry point. Creates the SwiftData <code>ModelContainer</code> explicitly in <code>init()</code>, registers UserDefaults defaults for notification times, configures <code>NotificationManager</code>, and presents <code>ContentView</code>.</td>
+                </tr>
+                <tr>
+                    <td><code class="file-path">ContentView.swift</code></td>
+                    <td><span class="badge badge-cyan">Coordinator</span></td>
+                    <td>Owns <code>@Query</code> and <code>modelContext</code>. Manages month navigation state, slide animation direction, toggle logic, history lock (<code>@AppStorage</code> with one-shot relock dispatch), settings sheet presentation, notification cancellation on toggle, <code>scenePhase</code> rescheduling, and composes all child views.</td>
+                </tr>
+                <tr>
+                    <td><code class="file-path">Models/PillRecord.swift</code></td>
+                    <td><span class="badge badge-orange">Model</span></td>
+                    <td>SwiftData <code>@Model</code> with <code>date</code>, <code>morningTaken</code>, <code>eveningTaken</code>. Normalises date to start-of-day on init.</td>
+                </tr>
+                <tr>
+                    <td><code class="file-path">Views/CalendarView.swift</code></td>
+                    <td><span class="badge badge-cyan">Layout</span></td>
+                    <td>GeometryReader-based month grid. Computes week rows, distributes vertical space evenly across 6 rows. Passes toggle callbacks through to cells.</td>
+                </tr>
+                <tr>
+                    <td><code class="file-path">Views/DayCellView.swift</code></td>
+                    <td><span class="badge badge-orange">Interactive</span></td>
+                    <td>Renders day number + two pill bars. Handles tap gestures, haptic feedback, and colour logic based on taken/today/future state.</td>
+                </tr>
+                <tr>
+                    <td><code class="file-path">Views/StreakView.swift</code></td>
+                    <td><span class="badge badge-grey">Display</span></td>
+                    <td>Computes consecutive complete days backwards from today via <code>static calculateStreak(from:)</code>. Displays flame icon and count in a capsule badge. Hidden when streak is 0.</td>
+                </tr>
+                <tr>
+                    <td><code class="file-path">Views/SettingsView.swift</code></td>
+                    <td><span class="badge badge-cyan">Settings</span></td>
+                    <td>Modal sheet with <code>NavigationStack</code> + <code>Form</code>. Notifications section: enable/disable toggle, morning/evening <code>DatePicker</code>s. History section: lock past days toggle. Bridges <code>@AppStorage</code> Ints to <code>DatePicker</code> via custom bindings. Handles notification permission flow.</td>
+                </tr>
+                <tr>
+                    <td><code class="file-path">Services/NotificationManager.swift</code></td>
+                    <td><span class="badge badge-orange">Service</span></td>
+                    <td>Singleton <code>NSObject</code> + <code>UNUserNotificationCenterDelegate</code>. Schedules local notifications for the next 7 days, skipping taken pills. Cancels specific notifications by ID (<code>morning-YYYY-MM-DD</code>). Suppresses foreground notifications if pill already taken. Queries SwiftData via a disposable <code>ModelContext</code>.</td>
+                </tr>
+                <tr>
+                    <td><code class="file-path">PillsTests/PillsTests.swift</code></td>
+                    <td><span class="badge badge-blue">Tests</span></td>
+                    <td>49 unit tests using in-memory SwiftData. Covers toggle logic (create, on, off, independence, round-trip), date matching, persistence across contexts, streak calculation edge cases, and notification scheduling/cancellation/suppression decisions.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Visual States -->
+        <h2>Pill Bar Visual States</h2>
+        <div class="state-grid">
+            <div class="state-card">
+                <h4>Today - Not Taken</h4>
+                <div class="bar-preview" style="background: #00d2d3;"></div>
+                <div class="bar-preview" style="background: #ff9f43;"></div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Full colour, tappable</p>
+            </div>
+            <div class="state-card">
+                <h4>Today - Taken</h4>
+                <div class="bar-preview" style="background: #888;"></div>
+                <div class="bar-preview" style="background: #888;"></div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Grey, tappable (undo)</p>
+            </div>
+            <div class="state-card">
+                <h4>Past - Missed</h4>
+                <div class="bar-preview" style="background: rgba(0, 210, 211, 0.3);"></div>
+                <div class="bar-preview" style="background: rgba(255, 159, 67, 0.3);"></div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Dimmed, tappable (lock guard)</p>
+            </div>
+            <div class="state-card">
+                <h4>Past - Taken</h4>
+                <div class="bar-preview" style="background: rgba(136, 136, 136, 0.4);"></div>
+                <div class="bar-preview" style="background: rgba(136, 136, 136, 0.4);"></div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Dimmed grey, tappable (lock guard)</p>
+            </div>
+            <div class="state-card">
+                <h4>Future</h4>
+                <div class="bar-preview" style="background: rgba(0, 210, 211, 0.3);"></div>
+                <div class="bar-preview" style="background: rgba(255, 159, 67, 0.3);"></div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Dimmed, not tappable</p>
+            </div>
+            <div class="state-card">
+                <h4>Today Cell</h4>
+                <div style="border: 2px solid rgba(84, 160, 255, 0.6); border-radius: 8px; padding: 6px; background: rgba(84, 160, 255, 0.08);">
+                    <div class="bar-preview" style="background: #00d2d3;"></div>
+                    <div class="bar-preview" style="background: #ff9f43;"></div>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Blue outline + tint</p>
+            </div>
+        </div>
+
+        <!-- Calendar Layout -->
+        <h2>Calendar Layout Strategy</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+block-beta
+    columns 1
+    block:layout["CalendarView Layout"]
+        columns 1
+        A["GeometryReader measures available space"]
+        B["Day-of-week header row (20pt fixed)"]
+        C["6 week rows with computed height:<br/>(availableHeight - headerHeight - totalSpacing) / 6"]
+        D["Each row: HStack of 7 DayCellViews<br/>Empty cells for offset days"]
+    end
+
+    style layout fill:#16213e,stroke:#0f3460
+    style A fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style B fill:#0f3460,stroke:#888,color:#e0e0e0
+    style C fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style D fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+            </div>
+        </div>
+        <div class="card">
+            <h3>Why 6 Fixed Rows?</h3>
+            <p>Months can span 4 to 6 calendar weeks. Using a fixed 6-row layout prevents the calendar height from jumping when navigating between months, keeping the slide animation smooth and the overall layout stable.</p>
+            <h3>Month Transition Animation</h3>
+            <p>Month changes use <code>.id(displayedMonth)</code> to force SwiftUI to treat each month as a distinct view. Combined with an asymmetric <code>.move</code> transition, the outgoing month slides out while the incoming month slides in from the navigation direction. A <code>slideDirection</code> state variable is set before the animation begins, so that navigating backward slides right-to-left and forward slides left-to-right.</p>
+        </div>
+
+        <!-- Streak Algorithm -->
+        <h2>Streak Algorithm</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+flowchart TD
+    S([Start]) --> A{Today both<br/>pills taken?}
+    A -- Yes --> B[count = 1<br/>Move to yesterday]
+    A -- No --> C[count = 0<br/>Move to yesterday]
+    B --> D{Current day<br/>both taken?}
+    C --> D
+    D -- Yes --> E[count++<br/>Move back 1 day]
+    E --> D
+    D -- No --> F([Return count])
+
+    style S fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style A fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style B fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style C fill:#0f3460,stroke:#888,color:#e0e0e0
+    style D fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style E fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style F fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+            </div>
+        </div>
+
+        <!-- App Icon -->
+        <h2>App Icon</h2>
+        <div class="card" style="text-align: center;">
+            <img src="Pills/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="180" style="border-radius: 36px; margin-bottom: 16px;" alt="Pills app icon" />
+            <p>The app icon was generated programmatically using a Swift script with <code>CoreGraphics</code>. It depicts a stylised "today" cell with the day number, cyan morning bar, and orange evening bar on a dark background - matching the app's visual language. The icon is a static 1024x1024 PNG rendered at 1x scale via <code>NSBitmapImageRep</code> to avoid Retina doubling.</p>
+        </div>
+
+        <!-- Notification Architecture -->
+        <h2>Notification Architecture</h2>
+        <div style="text-align: center; margin: 24px 0;">
+            <div style="display: inline-block; background: #000; border-radius: 24px; padding: 10px; box-shadow: 0 16px 64px rgba(0,0,0,0.6);">
+                <img src="reminder.jpg" alt="Evening pill reminder notification on iPhone" style="width: 300px; border-radius: 16px; display: block;" />
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 14px;">Evening pill reminder notification</p>
+        </div>
+        <p>The app uses <code>UNUserNotificationCenter</code> local notifications to remind users to take their pills. Since local notifications can't run custom code at delivery time when the app is backgrounded, a <strong>smart cancellation</strong> pattern is used.</p>
+        <div class="diagram-container">
+            <div class="mermaid">
+flowchart TD
+    S([App becomes active]) --> A["rescheduleAll()"]
+    A --> B[Cancel all pending pill notifications]
+    B --> C[Read settings from UserDefaults]
+    C --> D[Query SwiftData for PillRecords]
+    D --> E["Loop: next 7 days"]
+    E --> F{Morning pill<br/>already taken?}
+    F -- No --> G["Schedule morning-YYYY-MM-DD<br/>at configured time"]
+    F -- Yes --> H[Skip morning]
+    G --> I{Evening pill<br/>already taken?}
+    H --> I
+    I -- No --> J["Schedule evening-YYYY-MM-DD<br/>at configured time"]
+    I -- Yes --> K[Skip evening]
+    J --> L[Next day]
+    K --> L
+    L --> E
+
+    style S fill:#0f3460,stroke:#54a0ff,color:#e0e0e0
+    style A fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style B fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style C fill:#0f3460,stroke:#888,color:#e0e0e0
+    style D fill:#0f3460,stroke:#54a0ff,color:#e0e0e0
+    style E fill:#0f3460,stroke:#888,color:#e0e0e0
+    style F fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style G fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style H fill:#0f3460,stroke:#888,color:#e0e0e0
+    style I fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style J fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style K fill:#0f3460,stroke:#888,color:#e0e0e0
+    style L fill:#0f3460,stroke:#888,color:#e0e0e0
+            </div>
+        </div>
+        <div class="card">
+            <p><strong>Why smart cancellation?</strong> iOS local notifications can't execute code at delivery time when the app is backgrounded. Instead, we schedule notifications optimistically and cancel them when the user takes their pills (which requires opening the app). This ensures reminders fire reliably even when the app hasn't been opened in days.</p>
+            <p><strong>Immediate cancellation:</strong> When the user marks a pill as taken in <code>ContentView</code>, <code>cancelTodayMorning()</code> or <code>cancelTodayEvening()</code> removes that specific notification by its date-based ID.</p>
+            <p><strong>Foreground suppression:</strong> The <code>willPresent</code> delegate queries SwiftData at delivery time. If the pill is already marked as taken, the notification is suppressed silently.</p>
+            <p><strong>Settings:</strong> <code>SettingsView</code> provides enable/disable toggle and morning/evening <code>DatePicker</code>s (defaulting to 7:00 AM / 9:00 PM). All settings are stored in <code>@AppStorage</code> (UserDefaults) and read by <code>NotificationManager</code> during scheduling.</p>
+        </div>
+
+        <!-- History Lock -->
+        <h2>History Lock</h2>
+        <p>Past days are protected from accidental edits by a history lock. The lock state lives in <code>@AppStorage</code> (UserDefaults) and is managed entirely in <code>ContentView</code>.</p>
+        <div class="diagram-container">
+            <div class="mermaid">
+flowchart TD
+    S([User taps past day]) --> A{historyLocked?}
+    A -- No --> B([Toggle pill record])
+    A -- Yes --> C[Show unlock alert]
+    C --> D{User choice}
+    D -- Cancel --> E([No change])
+    D -- Unlock --> F["unlock(): historyLocked = false<br/>unlockTimestamp = now"]
+    F --> B
+    F --> G["Schedule one-shot DispatchWorkItem<br/>fires after 600s"]
+    G --> H["relock(): cancel task,<br/>historyLocked = true,<br/>unlockTimestamp = 0"]
+
+    style S fill:#0f3460,stroke:#54a0ff,color:#e0e0e0
+    style A fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style B fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style C fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style D fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style E fill:#0f3460,stroke:#888,color:#e0e0e0
+    style F fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style G fill:#0f3460,stroke:#888,color:#e0e0e0
+    style H fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style I fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+            </div>
+        </div>
+        <div class="card">
+            <p><strong>Why @AppStorage?</strong> The lock is a UI preference, not pill data. Using <code>@AppStorage</code> keeps it out of SwiftData, avoids model migration, and survives app restarts automatically via UserDefaults. The relock uses a single one-shot <code>DispatchWorkItem</code> scheduled for exactly 10 minutes after unlock &mdash; zero CPU usage while locked. On app resume, remaining time is recalculated from the stored timestamp.</p>
+            <p><strong>Today is exempt:</strong> Tapping today's bars always works regardless of lock state. Only past days are guarded.</p>
+            <p><strong>Lock icon:</strong> A <code>lock.fill</code> / <code>lock.open.fill</code> button sits in the header bar. It provides both visual state and manual toggle.</p>
+        </div>
+
+        <!-- Testing -->
+        <h2>Testing</h2>
+        <p>The <code>PillsTests</code> target contains 49 unit tests covering data mutations, streak logic, and notification decision-making. All tests use an in-memory <code>ModelContainer</code> for isolation and speed.</p>
+        <div class="diagram-container">
+            <div class="mermaid">
+flowchart LR
+    subgraph Model["PillRecord Model (2)"]
+        A[Date normalisation]
+        B[Default values]
+    end
+
+    subgraph Toggle["Toggle Logic (11)"]
+        C[Morning create]
+        D[Morning on/off]
+        E[Evening create]
+        F[Evening on/off]
+        G[Independence]
+        H[Double-tap round-trip]
+        I[Date matching]
+    end
+
+    subgraph Data["SwiftData (3)"]
+        J[Persistence across contexts]
+        K[Separate records per day]
+        L[Single record reuse]
+    end
+
+    subgraph Streak["Streak Calculation (7)"]
+        M[Empty / complete / incomplete]
+        N[Consecutive days]
+        O[Break on gap]
+        P[Break on partial]
+        Q[Yesterday fallback]
+    end
+
+    subgraph Schedule["Notification Scheduling (14)"]
+        R[Disabled returns empty]
+        S[Skip taken / past fire times]
+        T[7-day coverage]
+        U[Hour / minute / body / date format]
+        V[Mixed records across days]
+        W[Custom reminder times]
+    end
+
+    subgraph Cancel["Cancellation IDs (4)"]
+        X[Morning / evening format]
+        Y[Different dates differ]
+        Z[IDs match buildSchedule]
+    end
+
+    subgraph Suppress["Foreground Suppression (8)"]
+        AA[Suppress when taken]
+        AB[Show when not taken]
+        AC[No record shows]
+        AD[Morning / evening independence]
+        AE[Reference date only]
+    end
+
+    style Model fill:#0f3460,stroke:#54a0ff,color:#e0e0e0
+    style Toggle fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style Data fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+    style Streak fill:#0f3460,stroke:#a29bfe,color:#e0e0e0
+    style Schedule fill:#0f3460,stroke:#00b894,color:#e0e0e0
+    style Cancel fill:#0f3460,stroke:#00d2d3,color:#e0e0e0
+    style Suppress fill:#0f3460,stroke:#ff9f43,color:#e0e0e0
+            </div>
+        </div>
+        <div class="card">
+            <p><strong>Test strategy:</strong> Tests replicate the toggle logic from <code>ContentView.performToggleMorning</code>/<code>performToggleEvening</code> as helper methods, operating against a real <code>ModelContext</code> backed by an in-memory store. This validates the exact same find-or-create-then-toggle pattern the app uses.</p>
+            <p><strong>Streak testability:</strong> The streak algorithm was extracted from a private computed property into <code>StreakView.calculateStreak(from:)</code>, a static method that accepts a <code>[PillRecord]</code> array. This allows direct unit testing without instantiating the view.</p>
+            <p><strong>Notification testability:</strong> Scheduling, ID generation, and foreground suppression logic are extracted as <code>internal static</code> methods on <code>NotificationManager</code> with all inputs as explicit parameters. Tests inject dates, records, and calendar directly &mdash; no <code>UNUserNotificationCenter</code>, no <code>UserDefaults</code>, no <code>ModelContext</code>. The <code>PillNotification</code> value type decouples assertions from <code>UNNotificationRequest</code>.</p>
+        </div>
+
+        <!-- Future Enhancements -->
+        <h2>Potential Future Enhancements</h2>
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Complexity</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><s>Notification reminders</s></td>
+                        <td><span class="badge badge-cyan">Done</span></td>
+                        <td>Implemented via NotificationManager with smart cancellation, configurable times in SettingsView</td>
+                    </tr>
+                    <tr>
+                        <td>Home Screen widget</td>
+                        <td><span class="badge badge-orange">Medium</span></td>
+                        <td>WidgetKit, show today's pill status at a glance</td>
+                    </tr>
+                    <tr>
+                        <td>Multiple medication types</td>
+                        <td><span class="badge badge-orange">Medium</span></td>
+                        <td>Extend PillRecord or add a Medication model with configurable time slots</td>
+                    </tr>
+                    <tr>
+                        <td>iCloud sync</td>
+                        <td><span class="badge badge-cyan">Low</span></td>
+                        <td>SwiftData supports CloudKit with minimal config changes</td>
+                    </tr>
+                    <tr>
+                        <td>Export/stats view</td>
+                        <td><span class="badge badge-cyan">Low</span></td>
+                        <td>Monthly adherence percentage, charts with Swift Charts</td>
+                    </tr>
+                    <tr>
+                        <td>Dark mode support</td>
+                        <td><span class="badge badge-cyan">Low</span></td>
+                        <td>Adapt calendar colours for system dark/light mode</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                darkMode: true,
+                background: '#16213e',
+                primaryColor: '#0f3460',
+                primaryTextColor: '#e0e0e0',
+                primaryBorderColor: '#00d2d3',
+                lineColor: '#54a0ff',
+                secondaryColor: '#0f3460',
+                tertiaryColor: '#0f3460',
+                fontFamily: '-apple-system, BlinkMacSystemFont, SF Pro Text, sans-serif'
+            }
+        });
+    </script>
+</body>
+</html>
