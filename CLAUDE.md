@@ -103,6 +103,9 @@ xcodebuild -project Pills.xcodeproj -scheme Pills -destination 'platform=iOS Sim
 | `historyLocked` | Bool | true | ContentView, SettingsView |
 | `unlockTimestamp` | Double | 0 | ContentView |
 
+## Repository
+- **GitHub:** https://github.com/pcwilliams/pills
+
 ## Conventions
 - No external dependencies - pure Apple frameworks only
 - Portrait orientation only
