@@ -82,8 +82,8 @@ PillsTests/
 
 This project includes rich HTML documentation best viewed locally in a browser:
 
-- **[architecture.html](architecture.html)** &mdash; Architecture & design docs with interactive Mermaid.js diagrams: view hierarchy, data model, data flow, calendar layout strategy, and streak algorithm
-- **[tutorial.html](tutorial.html)** &mdash; Step-by-step tutorial showing how this entire app was built through conversation with Claude Code, including the prompts used, design decisions, and iterative refinements
+- **[architecture.html](https://pcwilliams.design/dev/pills/architecture.html)** &mdash; Architecture & design docs with interactive Mermaid.js diagrams: view hierarchy, data model, data flow, calendar layout strategy, and streak algorithm
+- **[tutorial.html](https://pcwilliams.design/dev/pills/tutorial.html)** &mdash; Step-by-step tutorial showing how this entire app was built through conversation with Claude Code, including the prompts used, design decisions, and iterative refinements
 
 > To view: clone the repo and open the HTML files in your browser, or use a local server.
 
@@ -107,7 +107,7 @@ xcodebuild -project Pills.xcodeproj -scheme Pills \
 
 ## How This Was Built
 
-This app was built entirely through a single conversation with Claude Code &mdash; from the initial idea through to the finished app running on an iPhone 16 Pro. The [tutorial](tutorial.html) documents every prompt and response. Key stats:
+This app was built entirely through a single conversation with Claude Code &mdash; from the initial idea through to the finished app running on an iPhone 16 Pro. The [tutorial](https://pcwilliams.design/dev/pills/tutorial.html) documents every prompt and response. Key stats:
 
 | | |
 |---|---|
