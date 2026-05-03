@@ -41,6 +41,16 @@ A minimal iOS app for tracking daily morning and evening medication, built entir
 5. Choose your iPhone or a simulator as the run destination
 6. Press **Cmd+R** to build and run
 
+For day-to-day rebuilds onto a paired iPhone, use the bundled helper —
+it builds (signed), installs, and launches in one step:
+
+```bash
+./run_phone.sh
+```
+
+`run_phone.sh` reads `APPLE_TEAM_ID`, `IPHONE_UDID`, and `IPHONE_BUILD_ID`
+from `~/appledev/setupenv.sh` to handle code-signing automatically.
+
 ## How It Works
 
 Each day in the calendar displays two horizontal bars:
