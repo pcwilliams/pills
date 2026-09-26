@@ -480,7 +480,7 @@ xcodebuild -project Pills.xcodeproj -scheme Pills -destination 'platform=iOS Sim
 
 ## Data Safety
 - **Never rename `PillRecord` or its stored properties, or change the bundle ID** — `PillsApp.init()` calls `fatalError` if the container can't open, and the phone's history lives only in that store. Adding properties with default values is safe (lightweight migration); computed properties don't touch the schema.
-- **Back up before risky changes**: `xcrun devicectl device copy from --device $IPHONE_UDID --domain-type appDataContainer --domain-identifier com.pwilliams.Pills --source "Library/Application Support/default.store" --destination …` (repeat for `-wal` and `-shm`; most recent data is in the WAL). Backup of 26 Sep 2026 (235 days) is in `~/appledev/backups/pills-2026-09-26/`.
+- **Back up before risky changes**: `xcrun devicectl device copy from --device $IPHONE_UDID --domain-type appDataContainer --domain-identifier com.pwilliams.Pills --source "Library/Application Support/default.store" --destination …` (repeat for `-wal` and `-shm`; most recent data is in the WAL).
 - **Test against real data in the simulator**: install, launch once, replace `Library/Application Support/default.store*` in the app's data container with a backup copy, then launch with `SIMCTL_CHILD_TZ=America/New_York` (or any zone) to check travel behaviour. The status bar shows the Mac's time regardless.
 - SwiftData dates are seconds since 2001-01-01: `sqlite3 default.store "select datetime(ZDATE+978307200,'unixepoch') from ZPILLRECORD"`.
 
