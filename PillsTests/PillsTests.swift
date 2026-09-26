@@ -30,29 +30,15 @@ final class PillsTests: XCTestCase {
         try context.fetch(FetchDescriptor<PillRecord>())
     }
 
-    /// Replicates the toggle logic from ContentView.performToggleMorning
-    private func performToggleMorning(for date: Date) throws {
-        let startOfDay = calendar.startOfDay(for: date)
-        let records = try fetchRecords()
-        if let record = records.first(where: { calendar.isDate($0.date, inSameDayAs: startOfDay) }) {
-            record.morningTaken.toggle()
-        } else {
-            let newRecord = PillRecord(date: startOfDay, morningTaken: true)
-            context.insert(newRecord)
-        }
+    /// Same path as ContentView.performToggleMorning: shared PillRecord.toggle, then save
+    private func performToggleMorning(for date: Date, calendar: Calendar? = nil) throws {
+        PillRecord.toggle(.morning, on: date, in: try fetchRecords(), context: context, calendar: calendar ?? self.calendar)
         try context.save()
     }
 
-    /// Replicates the toggle logic from ContentView.performToggleEvening
-    private func performToggleEvening(for date: Date) throws {
-        let startOfDay = calendar.startOfDay(for: date)
-        let records = try fetchRecords()
-        if let record = records.first(where: { calendar.isDate($0.date, inSameDayAs: startOfDay) }) {
-            record.eveningTaken.toggle()
-        } else {
-            let newRecord = PillRecord(date: startOfDay, eveningTaken: true)
-            context.insert(newRecord)
-        }
+    /// Same path as ContentView.performToggleEvening: shared PillRecord.toggle, then save
+    private func performToggleEvening(for date: Date, calendar: Calendar? = nil) throws {
+        PillRecord.toggle(.evening, on: date, in: try fetchRecords(), context: context, calendar: calendar ?? self.calendar)
         try context.save()
     }
 
@@ -312,7 +298,7 @@ final class PillsTests: XCTestCase {
         XCTAssertEqual(fetched.count, 1)
         XCTAssertTrue(fetched[0].morningTaken)
         XCTAssertTrue(fetched[0].eveningTaken)
-        XCTAssertTrue(calendar.isDate(fetched[0].date, inSameDayAs: today))
+        XCTAssertEqual(fetched[0].day, DayKey(localDate: today, calendar: calendar))
     }
 
     // MARK: - Record Lookup by Date
@@ -336,6 +322,98 @@ final class PillsTests: XCTestCase {
         let records = try fetchRecords()
         XCTAssertEqual(records.count, 1, "Should match existing record, not create a second")
         XCTAssertTrue(records[0].morningTaken)
+    }
+
+    // MARK: - Time Zones (DayKey)
+
+    private func zone(_ id: String) -> Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: id)!
+        return cal
+    }
+
+    private func utcInstant(_ iso: String) -> Date {
+        ISO8601DateFormatter().date(from: iso)!
+    }
+
+    /// A record as it would be stored by a phone in `zone`: local midnight of that day.
+    private func storedRecord(year: Int, month: Int, day: Int, in zoneId: String,
+                              morning: Bool = true, evening: Bool = true) -> PillRecord {
+        let cal = zone(zoneId)
+        let midnight = cal.date(from: DateComponents(year: year, month: month, day: day))!
+        let record = PillRecord(date: midnight, morningTaken: morning, eveningTaken: evening)
+        record.date = midnight  // init normalises with Calendar.current; keep the other zone's midnight
+        return record
+    }
+
+    func testDayKeyForStoredMidnightsSeenOnDevice() {
+        // The four forms found in the real store (Sep 2026 audit)
+        XCTAssertEqual(DayKey(recordDate: utcInstant("2026-03-01T00:00:00Z")), DayKey(year: 2026, month: 3, day: 1))   // UK winter
+        XCTAssertEqual(DayKey(recordDate: utcInstant("2026-07-09T23:00:00Z")), DayKey(year: 2026, month: 7, day: 10))  // UK summer
+        XCTAssertEqual(DayKey(recordDate: utcInstant("2026-09-22T22:00:00Z")), DayKey(year: 2026, month: 9, day: 23))  // Central Europe summer
+        XCTAssertEqual(DayKey(recordDate: utcInstant("2026-07-09T04:00:00Z")), DayKey(year: 2026, month: 7, day: 9))   // US East summer
+    }
+
+    func testDayKeyCoversZonesFromUTCMinus11ToPlus12() {
+        for zoneId in ["Pacific/Pago_Pago", "America/Los_Angeles", "America/New_York", "Europe/London",
+                       "Europe/Paris", "Asia/Dubai", "Asia/Kolkata", "Asia/Tokyo", "Australia/Sydney", "Pacific/Auckland"] {
+            let record = storedRecord(year: 2026, month: 7, day: 15, in: zoneId)
+            XCTAssertEqual(record.day, DayKey(year: 2026, month: 7, day: 15), zoneId)
+        }
+    }
+
+    func testUKRecordFoundOnSameDayWhenPhoneIsInNewYork() {
+        // Taken in London on 10 July, then viewed in New York the same day
+        let records = [storedRecord(year: 2026, month: 7, day: 10, in: "Europe/London", evening: false)]
+        let ny = zone("America/New_York")
+        let nyMorning = ny.date(from: DateComponents(year: 2026, month: 7, day: 10, hour: 9))!
+        let found = records.record(on: nyMorning, calendar: ny)
+        XCTAssertNotNil(found, "Today's UK record must still show as today in New York")
+        XCTAssertTrue(found?.morningTaken ?? false)
+        // …and not on the previous New York day
+        let nyYesterday = ny.date(from: DateComponents(year: 2026, month: 7, day: 9, hour: 21))!
+        XCTAssertNil(records.record(on: nyYesterday, calendar: ny))
+    }
+
+    func testEuropeRecordFoundOnSameDayBackInUK() {
+        let records = [storedRecord(year: 2026, month: 9, day: 23, in: "Europe/Athens")]
+        let london = zone("Europe/London")
+        XCTAssertNotNil(records.record(on: london.date(from: DateComponents(year: 2026, month: 9, day: 23, hour: 12))!, calendar: london))
+        XCTAssertNil(records.record(on: london.date(from: DateComponents(year: 2026, month: 9, day: 22, hour: 12))!, calendar: london))
+    }
+
+    func testToggleAfterTravelUpdatesExistingRecordInsteadOfDuplicating() throws {
+        let record = storedRecord(year: 2026, month: 7, day: 10, in: "Europe/London", evening: false)
+        context.insert(record)
+        try context.save()
+
+        let ny = zone("America/New_York")
+        let nyEvening = ny.date(from: DateComponents(year: 2026, month: 7, day: 10, hour: 20))!
+        try performToggleEvening(for: nyEvening, calendar: ny)
+
+        let records = try fetchRecords()
+        XCTAssertEqual(records.count, 1, "Should toggle the UK record, not create a New York duplicate")
+        XCTAssertTrue(records[0].morningTaken)
+        XCTAssertTrue(records[0].eveningTaken)
+    }
+
+    func testScheduleSuppressesTodayAfterTravel() {
+        // Morning taken in London; the evening reminder in New York must not re-add the morning
+        let records = [storedRecord(year: 2026, month: 7, day: 10, in: "Europe/London", evening: false)]
+        let ny = zone("America/New_York")
+        let ref = ny.date(from: DateComponents(year: 2026, month: 7, day: 10, hour: 6))!
+        let result = NotificationManager.buildSchedule(
+            notificationsEnabled: true,
+            morningHour: 7, morningMinute: 0,
+            eveningHour: 21, eveningMinute: 0,
+            records: records, referenceDate: ref, calendar: ny
+        )
+        let today = result.filter { $0.dateString == "2026-07-10" }
+        XCTAssertEqual(today.map(\.period), [.evening])
+    }
+
+    func testScheduleFitsIOSPendingNotificationLimit() {
+        XCTAssertLessThanOrEqual(2 * NotificationManager.scheduleDays, 64)
     }
 
     // MARK: - Notification Helpers
@@ -468,8 +546,8 @@ final class PillsTests: XCTestCase {
         XCTAssertTrue(todayNotifications.contains { $0.period == .morning })
     }
 
-    func testBuildScheduleCoversSevenDays() {
-        // Midnight reference, no records = 14 notifications (2 per day x 7 days)
+    func testBuildScheduleCoversScheduleDays() {
+        // Midnight reference, no records = 2 notifications per day for every scheduled day
         let ref = makeTodayAt(hour: 0, minute: 0)
         let result = NotificationManager.buildSchedule(
             notificationsEnabled: true,
@@ -479,9 +557,9 @@ final class PillsTests: XCTestCase {
             referenceDate: ref,
             calendar: calendar
         )
-        XCTAssertEqual(result.count, 14)
+        XCTAssertEqual(result.count, 2 * NotificationManager.scheduleDays)
         let uniqueDates = Set(result.map { $0.dateString })
-        XCTAssertEqual(uniqueDates.count, 7)
+        XCTAssertEqual(uniqueDates.count, NotificationManager.scheduleDays)
     }
 
     func testBuildScheduleUsesCorrectHourAndMinute() {
@@ -562,8 +640,8 @@ final class PillsTests: XCTestCase {
         let day2 = result.filter { $0.dateString == dateString(for: makeDate(daysFromToday: 2)) }
         XCTAssertTrue(day2.isEmpty)
 
-        // Days 3-6: no records -> both
-        for offset in 3...6 {
+        // Remaining days: no records -> both
+        for offset in 3..<NotificationManager.scheduleDays {
             let dayN = result.filter { $0.dateString == dateString(for: makeDate(daysFromToday: offset)) }
             XCTAssertEqual(dayN.count, 2, "Day +\(offset) should have 2 notifications")
         }
@@ -583,7 +661,7 @@ final class PillsTests: XCTestCase {
         let todayNotifications = result.filter { $0.dateString == dateString(for: Date()) }
         XCTAssertTrue(todayNotifications.isEmpty)
         // But future days should still have notifications
-        XCTAssertEqual(result.count, 12) // 6 remaining days x 2
+        XCTAssertEqual(result.count, 2 * (NotificationManager.scheduleDays - 1)) // remaining days x 2
     }
 
     func testBuildScheduleCustomReminderTimes() {
@@ -596,7 +674,7 @@ final class PillsTests: XCTestCase {
             referenceDate: ref,
             calendar: calendar
         )
-        XCTAssertEqual(result.count, 14)
+        XCTAssertEqual(result.count, 2 * NotificationManager.scheduleDays)
         let mornings = result.filter { $0.period == .morning }
         XCTAssertTrue(mornings.allSatisfy { $0.hour == 9 && $0.minute == 30 })
         let evenings = result.filter { $0.period == .evening }

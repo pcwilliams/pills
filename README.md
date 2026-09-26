@@ -85,7 +85,7 @@ Pills/
 └── Assets.xcassets/
     └── AppIcon.appiconset/  # Dark-mode 1024x1024 app icon
 PillsTests/
-└── PillsTests.swift         # 49 unit tests
+└── PillsTests.swift         # 56 unit tests
 ```
 
 ## Documentation
@@ -113,7 +113,7 @@ xcodebuild -project Pills.xcodeproj -scheme Pills \
   CODE_SIGNING_ALLOWED=NO
 ```
 
-49 unit tests cover all user-triggered data updates (toggle on/off, field independence, double-toggle round-trips, date-matching, SwiftData persistence, streak calculation edge cases) and notification logic (scheduling decisions, cancellation ID generation, foreground suppression). Tests use an in-memory SwiftData container for isolation and speed.
+56 unit tests cover all user-triggered data updates (toggle on/off, field independence, double-toggle round-trips, date-matching including time-zone travel, SwiftData persistence, streak calculation edge cases) and notification logic (scheduling decisions, cancellation ID generation, foreground suppression). Tests use an in-memory SwiftData container for isolation and speed.
 
 ## How This Was Built
 
@@ -125,7 +125,7 @@ This app was built entirely through a single conversation with Claude Code &mdas
 | **UI refinement rounds** | 4 |
 | **External dependencies** | 0 |
 | **Lines of Swift** | ~700 |
-| **Unit tests** | 49 |
+| **Unit tests** | 56 |
 | **Conversations** | 2 |
 
 ## License

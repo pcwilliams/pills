@@ -283,6 +283,9 @@
             color: var(--text-muted);
             margin-top: 6px;
         }
+        table { border-collapse: collapse; margin: 12px 0 16px; font-size: 0.9rem; }
+        th, td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+        th { background: var(--surface); }
     </style>
 </head>
 <body>
@@ -300,7 +303,7 @@
         </div>
 
         <p class="intro">
-            This tutorial documents how the <strong>Pills</strong> app was built entirely through conversation with Claude Code &mdash; from the initial idea through to a polished, tested app running on a real iPhone. It covers the initial prompt, design decisions made through interactive Q&amp;A, iterative UI refinements, programmatic icon generation, local notification scheduling with a smart cancellation architecture, unit testing, and debugging a memory issue caused by an inefficient timer. Use it as a template for building your own apps with AI assistance.
+            This tutorial documents how the <strong>Pills</strong> app was built entirely through conversation with Claude Code &mdash; from the initial idea through to a polished, tested app running on a real iPhone. It covers the initial prompt, design decisions made through interactive Q&amp;A, iterative UI refinements, programmatic icon generation, local notification scheduling with a smart cancellation architecture, unit testing, debugging a memory issue caused by an inefficient timer, and an audit seven months later that found a time-zone bug in the real data. Use it as a template for building your own apps with AI assistance.
         </p>
 
         <div class="toc">
@@ -317,6 +320,7 @@
                 <li><a href="#step9">Lock History to Prevent Accidental Edits</a></li>
                 <li><a href="#step10">Add Unit Tests</a></li>
                 <li><a href="#step11">Add Notification Reminders</a></li>
+                <li><a href="#step12">Audit After Seven Months of Daily Use</a></li>
                 <li><a href="#lessons">Lessons Learned</a></li>
             </ol>
         </div>
@@ -759,6 +763,74 @@
             <p>By using plan mode, Claude laid out the full architecture &mdash; including the constraint that local notifications can't execute code at delivery time &mdash; before writing a single line. This prevented a false start with an approach that wouldn't work on iOS.</p>
         </div>
 
+        <!-- ─── STEP 12 ─── -->
+        <hr>
+        <h2 id="step12"><span class="step-num">12</span> Audit After Seven Months of Daily Use</h2>
+        <p class="step-subtitle">Reviewing a working app without risking the data on the phone</p>
+
+        <div class="prompt">
+            <p>do you want to do an 'audit' of pills too? It works perfectly, but hasn't been touched in a long time. Please don't lose existing phone data though.</p>
+        </div>
+
+        <div class="response">
+            <p>Claude started with checks that change nothing:</p>
+            <ul>
+                <li>Read every source file, built the app (no warnings) and ran the 49 tests (all passed)</li>
+                <li>Compared the working folder with the published GitHub copy (the code matched)</li>
+                <li>Copied the SwiftData store off the phone with <code>xcrun devicectl device copy from</code>. That meant three files: <code>default.store</code>, <code>-wal</code> and <code>-shm</code>. Most recent writes were still in the write-ahead log, so copying only the main file would have missed weeks of data</li>
+                <li>Opened a <em>copy</em> of the backup with <code>sqlite3</code> and checked that every day since the first launch had a record</li>
+            </ul>
+            <p>The data showed something the code review had only suggested. SwiftData stores <code>PillRecord.date</code> as local midnight in the time zone the phone was in <em>when the record was created</em>. The backup held four different UTC times for that midnight:</p>
+            <table>
+                <tr><th>Stored time (UTC)</th><th>Created in</th></tr>
+                <tr><td>00:00</td><td>UK, winter</td></tr>
+                <tr><td>23:00 the day before</td><td>UK, summer</td></tr>
+                <tr><td>22:00 the day before</td><td>Central Europe, summer</td></tr>
+                <tr><td>04:00</td><td>US East Coast, summer</td></tr>
+            </table>
+            <p>The app matched records to calendar cells with <code>calendar.isDate(_:inSameDayAs:)</code> in the phone's <em>current</em> time zone. After a flight west, a pill taken in the UK that morning showed on the previous day, so today looked untaken and the reminder still fired. For a medication tracker that is a double-dose risk. Tapping today again created a second record, and the backup contained several such duplicate days. The calendar had looked complete only because the gaps had been filled by hand.</p>
+            <p>Claude reported four fixes, recommended the ones that didn't touch stored data, and changed nothing until asked:</p>
+            <ol>
+                <li>Match records to days without depending on the current time zone</li>
+                <li>Save straight after each tap. The notification scheduler reads through its own <code>ModelContext</code>, which only sees saved data</li>
+                <li>Restore today's reminder if a tap is undone</li>
+                <li>Schedule reminders 28 days ahead instead of 7, so they continue if the app isn't opened for a week</li>
+            </ol>
+        </div>
+
+        <div class="prompt">
+            <p>please go ahead with 1-4</p>
+        </div>
+
+        <div class="response">
+            <p>Before editing, Claude took a folder snapshot (<code>Pills copy 2</code>) and saved the phone backup to a permanent folder outside the project.</p>
+            <p><strong>Time-zone fix.</strong> A new <code>DayKey</code> (year, month, day) in <code>PillRecord.swift</code>:</p>
+            <ul>
+                <li>A stored record's day is the UTC date of <code>date + 12h</code>. Local midnight anywhere from UTC&minus;12 to UTC+12 lands on the day it was made for</li>
+                <li>A calendar cell's day comes from the phone's current calendar</li>
+                <li>Every lookup (calendar, streak, notification schedule, foreground suppression, toggle) goes through <code>records.record(on:calendar:)</code></li>
+                <li>No stored value changes. <code>day</code> is a computed property, which SwiftData ignores, so the schema is unchanged and no migration runs</li>
+            </ul>
+            <p><strong>Save, then reschedule.</strong> The find-or-create toggle moved into <code>PillRecord.toggle(_:on:in:context:calendar:)</code>, so <code>ContentView</code> and the tests now run the same code. Previously the tests kept their own copy. <code>ContentView</code> saves immediately after a tap, then calls <code>rescheduleAll()</code> for today. That cancels a taken reminder and restores it if the tap is undone.</p>
+            <p><strong>28-day window.</strong> <code>NotificationManager.scheduleDays = 28</code> gives 56 pending requests, under iOS's limit of 64 per app. A test checks that limit.</p>
+            <p>Seven new tests build records the way another time zone would store them and look them up from a different zone. They cover the four stored forms, zones from UTC&minus;11 to +12, a London-to-New-York day, and a tap after travel that must update the existing record rather than add a duplicate. All 56 tests passed.</p>
+            <p>Claude then tested against the real data. It installed the new build in the simulator, replaced the store in the app's data container with a copy of the phone backup, and launched it with <code>SIMCTL_CHILD_TZ=America/New_York</code> and then <code>Pacific/Honolulu</code>:</p>
+            <ul>
+                <li>In Honolulu, where it was still the previous evening, "today" moved back a day as expected</li>
+                <li>The morning pill taken in the UK stayed on the day it was taken</li>
+                <li>The streak matched the count worked out from the database</li>
+                <li>After the app had opened the store, the record count and the schema metadata were byte-for-byte unchanged</li>
+            </ul>
+        </div>
+
+        <div class="insight">
+            <p><strong>Why the bug went unnoticed:</strong> Tests ran in one time zone, and the calendar always <em>looked</em> right because the user re-tapped any day that appeared empty. The problem only showed up in the stored timestamps. Reading real data from the device found what reading the code had only suggested.</p>
+        </div>
+
+        <div class="tip">
+            <p>When an app holds data you care about, make an audit read-only by default. Back up from the device first, check the backup opens, test changes against a copy of real data in the simulator, and prefer fixes that change how data is read over fixes that rewrite it. The project's <code>CLAUDE.md</code> now has a Data Safety section: never rename <code>PillRecord</code> or its stored properties, never change the bundle ID, and the exact <code>devicectl</code> backup commands.</p>
+        </div>
+
         <!-- ─── LESSONS ─── -->
         <hr>
         <h2 id="lessons">Lessons Learned</h2>
@@ -785,6 +857,9 @@
 
             <h3>7. Use CLAUDE.md for project memory</h3>
             <p>Creating a CLAUDE.md file means future sessions with Claude Code will start with full project context, enabling seamless continuation of development.</p>
+
+            <h3>8. Audit apps you rely on, using their real data</h3>
+            <p>Seven months after it was built, the app "worked perfectly", and the code review found only minor issues. The serious bug appeared in the data copied off the phone. Asking for an audit with a clear constraint ("don't lose existing phone data") led to a read-only review first, then fixes that change how records are read rather than rewriting them.</p>
         </div>
 
         <hr>
@@ -796,15 +871,15 @@
                 <div style="color: var(--text-muted); font-size: 0.85rem;">Swift files</div>
             </div>
             <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center;">
-                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-orange);">~700</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-orange);">~1,000</div>
                 <div style="color: var(--text-muted); font-size: 0.85rem;">Lines of Swift code</div>
             </div>
             <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center;">
-                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-blue);">49</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-blue);">56</div>
                 <div style="color: var(--text-muted); font-size: 0.85rem;">Unit tests</div>
             </div>
             <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center;">
-                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);">13</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);">15</div>
                 <div style="color: var(--text-muted); font-size: 0.85rem;">Prompts to build</div>
             </div>
             <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center;">
@@ -812,13 +887,13 @@
                 <div style="color: var(--text-muted); font-size: 0.85rem;">External dependencies</div>
             </div>
             <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center;">
-                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-cyan);">2</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent-cyan);">3</div>
                 <div style="color: var(--text-muted); font-size: 0.85rem;">Conversations</div>
             </div>
         </div>
 
         <p style="text-align: center; color: var(--text-muted); margin-top: 48px; font-size: 0.9rem;">
-            <a href="https://github.com/pcwilliams/pills" style="color: var(--accent-orange); text-decoration: none;">Source on GitHub</a> &mdash; Built with <a href="https://claude.ai/claude-code" style="color: var(--accent-cyan); text-decoration: none;">Claude Code</a> &mdash; February 2026
+            <a href="https://github.com/pcwilliams/pills" style="color: var(--accent-orange); text-decoration: none;">Source on GitHub</a> &mdash; Built with <a href="https://claude.ai/claude-code" style="color: var(--accent-cyan); text-decoration: none;">Claude Code</a> &mdash; February 2026, audited September 2026
         </p>
 
     </div>

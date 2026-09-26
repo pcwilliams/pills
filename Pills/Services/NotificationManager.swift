@@ -48,6 +48,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - Pure Logic (testable)
 
+    /// Days of reminders scheduled ahead. iOS keeps at most 64 pending notifications per app;
+    /// 28 days × 2 = 56, so reminders keep coming for four weeks even if the app isn't opened.
+    static let scheduleDays = 28
+
     static func buildSchedule(
         notificationsEnabled: Bool,
         morningHour: Int,
@@ -67,12 +71,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
         var result: [PillNotification] = []
 
-        for dayOffset in 0..<7 {
+        for dayOffset in 0..<scheduleDays {
             guard let date = calendar.date(byAdding: .day, value: dayOffset, to: today) else { continue }
             let dateString = formatter.string(from: date)
             let startOfDay = calendar.startOfDay(for: date)
 
-            let record = records.first { calendar.isDate($0.date, inSameDayAs: startOfDay) }
+            let record = records.record(on: startOfDay, calendar: calendar)
 
             // Morning notification
             if !(record?.morningTaken ?? false) {
@@ -129,7 +133,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let isMorning = identifier.hasPrefix("morning-")
         let today = calendar.startOfDay(for: referenceDate)
 
-        guard let record = records.first(where: { calendar.isDate($0.date, inSameDayAs: today) }) else {
+        guard let record = records.record(on: today, calendar: calendar) else {
             return false
         }
 

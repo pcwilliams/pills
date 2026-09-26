@@ -187,34 +187,26 @@ struct ContentView: View {
     }
 
     private func performToggleMorning(for date: Date) {
-        let startOfDay = calendar.startOfDay(for: date)
-        if let record = allRecords.first(where: { calendar.isDate($0.date, inSameDayAs: startOfDay) }) {
-            record.morningTaken.toggle()
-            if record.morningTaken && calendar.isDateInToday(date) {
-                NotificationManager.shared.cancelTodayMorning()
-            }
-        } else {
-            let newRecord = PillRecord(date: startOfDay, morningTaken: true)
-            modelContext.insert(newRecord)
-            if calendar.isDateInToday(date) {
-                NotificationManager.shared.cancelTodayMorning()
-            }
-        }
+        performToggle(.morning, for: date)
     }
 
     private func performToggleEvening(for date: Date) {
-        let startOfDay = calendar.startOfDay(for: date)
-        if let record = allRecords.first(where: { calendar.isDate($0.date, inSameDayAs: startOfDay) }) {
-            record.eveningTaken.toggle()
-            if record.eveningTaken && calendar.isDateInToday(date) {
-                NotificationManager.shared.cancelTodayEvening()
-            }
-        } else {
-            let newRecord = PillRecord(date: startOfDay, eveningTaken: true)
-            modelContext.insert(newRecord)
-            if calendar.isDateInToday(date) {
-                NotificationManager.shared.cancelTodayEvening()
-            }
+        performToggle(.evening, for: date)
+    }
+
+    private func performToggle(_ period: PillPeriod, for date: Date) {
+        PillRecord.toggle(period, on: date, in: allRecords, context: modelContext, calendar: calendar)
+        // Save now rather than waiting for autosave: NotificationManager reads through its own
+        // ModelContext, which only sees saved data.
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save pill record: \(error)")
+        }
+        // Rebuild reminders from saved data — cancels today's reminder when taken,
+        // and restores it if the tap is undone.
+        if calendar.isDateInToday(date) {
+            NotificationManager.shared.rescheduleAll()
         }
     }
 

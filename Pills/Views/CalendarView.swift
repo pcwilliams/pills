@@ -105,6 +105,6 @@ struct CalendarView: View {
     }
 
     private func record(for date: Date) -> PillRecord? {
-        records.first { calendar.isDate($0.date, inSameDayAs: date) }
+        records.record(on: date, calendar: calendar)
     }
 }

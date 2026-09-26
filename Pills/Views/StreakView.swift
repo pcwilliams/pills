@@ -13,7 +13,7 @@ struct StreakView: View {
         var count = 0
 
         // Check if today is fully complete
-        let todayRecord = records.first { calendar.isDate($0.date, inSameDayAs: today) }
+        let todayRecord = records.record(on: today, calendar: calendar)
         var currentDate: Date
 
         if let todayRecord, todayRecord.morningTaken && todayRecord.eveningTaken {
@@ -25,7 +25,7 @@ struct StreakView: View {
 
         // Count consecutive complete days going backwards
         while true {
-            let record = records.first { calendar.isDate($0.date, inSameDayAs: currentDate) }
+            let record = records.record(on: currentDate, calendar: calendar)
             if let record, record.morningTaken && record.eveningTaken {
                 count += 1
                 currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate)!

@@ -300,12 +300,12 @@ sequenceDiagram
                 <tr>
                     <td><code class="file-path">Services/NotificationManager.swift</code></td>
                     <td><span class="badge badge-orange">Service</span></td>
-                    <td>Singleton <code>NSObject</code> + <code>UNUserNotificationCenterDelegate</code>. Schedules local notifications for the next 7 days, skipping taken pills. Cancels specific notifications by ID (<code>morning-YYYY-MM-DD</code>). Suppresses foreground notifications if pill already taken. Queries SwiftData via a disposable <code>ModelContext</code>.</td>
+                    <td>Singleton <code>NSObject</code> + <code>UNUserNotificationCenterDelegate</code>. Schedules local notifications for the next 28 days, skipping taken pills. Cancels specific notifications by ID (<code>morning-YYYY-MM-DD</code>). Suppresses foreground notifications if pill already taken. Queries SwiftData via a disposable <code>ModelContext</code>.</td>
                 </tr>
                 <tr>
                     <td><code class="file-path">PillsTests/PillsTests.swift</code></td>
                     <td><span class="badge badge-blue">Tests</span></td>
-                    <td>49 unit tests using in-memory SwiftData. Covers toggle logic (create, on, off, independence, round-trip), date matching, persistence across contexts, streak calculation edge cases, and notification scheduling/cancellation/suppression decisions.</td>
+                    <td>56 unit tests using in-memory SwiftData. Covers toggle logic (create, on, off, independence, round-trip), date matching, persistence across contexts, streak calculation edge cases, and notification scheduling/cancellation/suppression decisions.</td>
                 </tr>
             </tbody>
         </table>
@@ -428,7 +428,7 @@ flowchart TD
     A --> B[Cancel all pending pill notifications]
     B --> C[Read settings from UserDefaults]
     C --> D[Query SwiftData for PillRecords]
-    D --> E["Loop: next 7 days"]
+    D --> E["Loop: next 28 days"]
     E --> F{Morning pill<br/>already taken?}
     F -- No --> G["Schedule morning-YYYY-MM-DD<br/>at configured time"]
     F -- Yes --> H[Skip morning]
@@ -498,7 +498,7 @@ flowchart TD
 
         <!-- Testing -->
         <h2>Testing</h2>
-        <p>The <code>PillsTests</code> target contains 49 unit tests covering data mutations, streak logic, and notification decision-making. All tests use an in-memory <code>ModelContainer</code> for isolation and speed.</p>
+        <p>The <code>PillsTests</code> target contains 56 unit tests covering data mutations, streak logic, and notification decision-making. All tests use an in-memory <code>ModelContainer</code> for isolation and speed.</p>
         <div class="diagram-container">
             <div class="mermaid">
 flowchart LR
